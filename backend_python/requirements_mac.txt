@@ -1,0 +1,6 @@
+opencv-python
+numpy
+requests
+boto3
+python-dotenv
+tqdm
