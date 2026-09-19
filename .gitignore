@@ -2,3 +2,4 @@
 /backend/images
 backend/.env
 /backend/.wrangler
+frontend/.env
