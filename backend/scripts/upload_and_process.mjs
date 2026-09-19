@@ -1,6 +1,8 @@
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import * as readline from 'readline/promises';
+import { stdin as input, stdout as output } from 'process';
 import { S3Client, HeadObjectCommand, PutObjectCommand } from '@aws-sdk/client-s3';
 import * as faceapi from '@vladmandic/face-api';
 import canvas from 'canvas';
@@ -58,14 +60,15 @@ async function uploadToS3(filePath, key) {
   return `https://${S3_BUCKET}.s3.${S3_REGION}.amazonaws.com/${key}`;
 }
 
-async function processSingleFile(file) {
-  const key = `faces/${file}`;
+async function processSingleFile(file, s3Prefix) {
+  // สร้าง S3 Key โดยเอา prefix ที่ผู้ใช้พิมพ์มาต่อหน้า
+  const key = `${s3Prefix}${file}`;
   
   try {
     // 1. Check if exists in S3
     const exists = await fileExistsInS3(key);
     if (exists) {
-      console.log(`✅ [SKIPPED] ${file} already exists in S3.`);
+      console.log(`✅ [SKIPPED] ${file} already exists in S3 at ${key}`);
       return;
     }
 
@@ -85,7 +88,7 @@ async function processSingleFile(file) {
     const vector = Array.from(detections.descriptor);
 
     // 3. Upload to S3
-    console.log(`⬆️ Uploading ${file} to S3...`);
+    console.log(`⬆️ Uploading ${file} to S3 -> ${key}...`);
     const s3Url = await uploadToS3(filePath, key);
 
     // 4. Send to Vectorize
@@ -113,6 +116,26 @@ async function processSingleFile(file) {
 }
 
 async function processAndUpload() {
+  const rl = readline.createInterface({ input, output });
+  
+  // ถามผู้ใช้ผ่าน Command Line
+  let s3Prefix = process.argv[2]; // รองรับการใส่ค่าผ่าน arg เช่น node script.mjs my-folder/
+  
+  if (!s3Prefix) {
+    const answer = await rl.question('📂 ระบุโฟลเดอร์/Path ใน S3 ที่ต้องการเก็บรูป (เช่น faces/ หรือ batch1/): ');
+    s3Prefix = answer.trim();
+  }
+  rl.close();
+
+  // จัดการ slash ด้านหลังให้ถูกต้อง
+  if (s3Prefix && !s3Prefix.endsWith('/')) {
+    s3Prefix += '/';
+  }
+
+  console.log(`\n======================================`);
+  console.log(`เป้าหมายใน S3: ${s3Prefix || '(root bucket)'}`);
+  console.log(`======================================\n`);
+
   console.log("Loading AI Models...");
   // Models are in frontend/public/models
   const modelsPath = path.resolve(__dirname, '../../frontend/public/models');
@@ -133,22 +156,26 @@ async function processAndUpload() {
 
   const files = fs.readdirSync(IMAGES_DIR).filter(f => f.endsWith('.jpg') || f.endsWith('.png') || f.endsWith('.jpeg'));
   console.log(`Found ${files.length} images to process.`);
+  
+  if (files.length === 0) {
+    return;
+  }
+
   console.log(`Starting parallel processing with concurrency limit: ${CONCURRENCY_LIMIT}`);
 
   // Parallel Processing with Concurrency Limit
   let currentIndex = 0;
 
-  const worker = async (workerId) => {
+  const worker = async () => {
     while (currentIndex < files.length) {
       const file = files[currentIndex++];
-      // console.log(`[Worker ${workerId}] Processing ${file}`);
-      await processSingleFile(file);
+      await processSingleFile(file, s3Prefix);
     }
   };
 
   const workers = [];
   for (let i = 0; i < CONCURRENCY_LIMIT; i++) {
-    workers.push(worker(i + 1));
+    workers.push(worker());
   }
 
   await Promise.all(workers);
