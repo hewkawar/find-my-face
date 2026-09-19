@@ -4,9 +4,9 @@ import { fileURLToPath } from 'url';
 import * as readline from 'readline/promises';
 import { stdin as input, stdout as output } from 'process';
 import { S3Client, HeadObjectCommand, PutObjectCommand } from '@aws-sdk/client-s3';
-import * as faceapi from '@vladmandic/face-api';
+import * as faceapi from '@vladmandic/face-api/dist/face-api.node-wasm.js';
 import canvas from 'canvas';
-import '@tensorflow/tfjs-node'; // Required to run tfjs in Node.js
+// import '@tensorflow/tfjs-node'; // Removed to prevent illegal instruction / native errors
 import dotenv from 'dotenv';
 
 dotenv.config();
@@ -137,6 +137,9 @@ async function processAndUpload() {
   console.log(`======================================\n`);
 
   console.log("Loading AI Models...");
+  // Wait for WASM backend to initialize
+  await faceapi.tf.ready();
+
   // Models are in frontend/public/models
   const modelsPath = path.resolve(__dirname, '../../frontend/public/models');
   

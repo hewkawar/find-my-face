@@ -21,8 +21,8 @@ export default {
       try {
         const body = await request.json() as { vector: number[], topK?: number, threshold?: number };
         
-        // ดึงให้เยอะที่สุดที่ Cloudflare Vectorize รองรับได้ต่อ 1 ครั้ง (ปกติ max คือ 100)
-        const limit = body.topK || 100;
+        // ดึงให้เยอะที่สุดที่ Cloudflare Vectorize รองรับได้ต่อ 1 ครั้ง โดยดึง metadata ด้วย (max คือ 50)
+        const limit = Math.min(body.topK || 50, 50);
         const scoreThreshold = body.threshold || 0.7; // ค่าความเหมือนต่ำสุดที่รับได้ (0.7 คือคล้ายพอสมควร)
         
         // Search in Vectorize

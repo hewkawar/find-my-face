@@ -86,7 +86,7 @@ function App() {
       const response = await fetch(`${import.meta.env.VITE_API_URL}/search`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ vector: descriptor, topK: 100, threshold: 0.7 })
+        body: JSON.stringify({ vector: descriptor, topK: 50, threshold: 0.7 })
       });
 
       if (!response.ok) throw new Error("API Error");
