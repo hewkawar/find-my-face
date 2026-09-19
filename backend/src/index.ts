@@ -19,12 +19,22 @@ export default {
     // Search endpoint
     if (url.pathname === "/search" && request.method === "POST") {
       try {
-        const body = await request.json() as { vector: number[] };
+        const body = await request.json() as { vector: number[], topK?: number, threshold?: number };
+        
+        // ดึงให้เยอะที่สุดที่ Cloudflare Vectorize รองรับได้ต่อ 1 ครั้ง (ปกติ max คือ 100)
+        const limit = body.topK || 100;
+        const scoreThreshold = body.threshold || 0.7; // ค่าความเหมือนต่ำสุดที่รับได้ (0.7 คือคล้ายพอสมควร)
         
         // Search in Vectorize
-        const matches = await env.VECTORIZE_INDEX.query(body.vector, { topK: 5 });
+        const result = await env.VECTORIZE_INDEX.query(body.vector, { 
+          topK: limit, 
+          returnMetadata: "all" 
+        });
         
-        return new Response(JSON.stringify(matches), {
+        // กรองเอาเฉพาะคนที่หน้าเหมือนจริงๆ (score > threshold)
+        const validMatches = result.matches.filter(match => match.score >= scoreThreshold);
+        
+        return new Response(JSON.stringify({ matches: validMatches, totalFound: validMatches.length }), {
           headers: {
             "Content-Type": "application/json",
             "Access-Control-Allow-Origin": "*",
