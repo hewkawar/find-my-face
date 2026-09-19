@@ -11,7 +11,8 @@ function App() {
   const [allResults, setAllResults] = useState<any[]>([]);
   const [displayCount, setDisplayCount] = useState(12); // เริ่มแสดงผลที่ 12 รูป
   const [searchMode, setSearchMode] = useState<'single' | 'group'>('single');
-
+  const [threshold, setThreshold] = useState<number>(0.7); // ค่าเริ่มต้นความแม่นยำ
+  
   const imageRef = useRef<HTMLImageElement>(null);
   const loadMoreRef = useRef<HTMLDivElement>(null);
 
@@ -98,7 +99,7 @@ function App() {
         const response = await fetch(`${import.meta.env.VITE_API_URL}/search`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ vector: descriptor, topK: 50, threshold: 0.7 }) 
+          body: JSON.stringify({ vector: descriptor, topK: 50, threshold: threshold }) 
         });
         
         if (response.ok) {
@@ -161,30 +162,50 @@ function App() {
                   </label>
                 </div>
 
-                <div className="flex flex-col space-y-2 bg-gray-50 p-4 rounded-xl border border-gray-100">
-                  <p className="text-sm font-medium text-gray-700">รูปแบบการค้นหา:</p>
-                  <label className="flex items-center space-x-2 cursor-pointer">
+                <div className="flex flex-col space-y-4 bg-gray-50 p-4 rounded-xl border border-gray-100">
+                  <div>
+                    <p className="text-sm font-medium text-gray-700 mb-2">รูปแบบการค้นหา:</p>
+                    <label className="flex items-center space-x-2 cursor-pointer mb-2">
+                      <input 
+                        type="radio" 
+                        name="searchMode" 
+                        value="single" 
+                        checked={searchMode === 'single'}
+                        onChange={() => setSearchMode('single')}
+                        className="text-blue-600 focus:ring-blue-500"
+                      />
+                      <span className="text-sm text-gray-600">ค้นหาเฉพาะหน้าหลัก (รูปเดี่ยว - รวดเร็ว)</span>
+                    </label>
+                    <label className="flex items-center space-x-2 cursor-pointer">
+                      <input 
+                        type="radio" 
+                        name="searchMode" 
+                        value="group" 
+                        checked={searchMode === 'group'}
+                        onChange={() => setSearchMode('group')}
+                        className="text-blue-600 focus:ring-blue-500"
+                      />
+                      <span className="text-sm text-gray-600">ค้นหาทุกคนในภาพ (รูปกลุ่ม - ใช้เวลาประมวลผลนานกว่า)</span>
+                    </label>
+                  </div>
+
+                  <div className="pt-2 border-t border-gray-200">
+                    <p className="text-sm font-medium text-gray-700 mb-1">
+                      ระดับความแม่นยำ (Threshold): {threshold.toFixed(2)}
+                    </p>
+                    <p className="text-xs text-gray-500 mb-2">
+                      * ยิ่งสูง ยิ่งเข้มงวด (รูปที่ไม่เหมือนเป๊ะจะถูกตัดออก)
+                    </p>
                     <input 
-                      type="radio" 
-                      name="searchMode" 
-                      value="single" 
-                      checked={searchMode === 'single'}
-                      onChange={() => setSearchMode('single')}
-                      className="text-blue-600 focus:ring-blue-500"
+                      type="range" 
+                      min="0.5" 
+                      max="0.95" 
+                      step="0.05" 
+                      value={threshold} 
+                      onChange={(e) => setThreshold(parseFloat(e.target.value))}
+                      className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
                     />
-                    <span className="text-sm text-gray-600">ค้นหาเฉพาะหน้าหลัก (รูปเดี่ยว - รวดเร็ว)</span>
-                  </label>
-                  <label className="flex items-center space-x-2 cursor-pointer">
-                    <input 
-                      type="radio" 
-                      name="searchMode" 
-                      value="group" 
-                      checked={searchMode === 'group'}
-                      onChange={() => setSearchMode('group')}
-                      className="text-blue-600 focus:ring-blue-500"
-                    />
-                    <span className="text-sm text-gray-600">ค้นหาทุกคนในภาพ (รูปกลุ่ม - ใช้เวลาประมวลผลนานกว่า)</span>
-                  </label>
+                  </div>
                 </div>
 
                 {image && (
