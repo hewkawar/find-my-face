@@ -51,18 +51,21 @@ export default {
     // Index endpoint (Upload new face vector)
     if (url.pathname === "/index" && request.method === "POST") {
       try {
-        const body = await request.json() as { id: string, vector: number[], metadata: any };
+        const body = await request.json();
+        const items = Array.isArray(body) ? body : [body];
         
-        // Insert into Vectorize
-        await env.VECTORIZE_INDEX.insert([
-          {
-            id: body.id,
-            values: body.vector,
-            metadata: body.metadata,
-          }
-        ]);
+        if (items.length > 0) {
+          const vectorsToInsert = items.map((item: any) => ({
+            id: item.id,
+            values: item.vector,
+            metadata: item.metadata,
+          }));
+          
+          // Insert into Vectorize in bulk
+          await env.VECTORIZE_INDEX.insert(vectorsToInsert);
+        }
         
-        return new Response(JSON.stringify({ success: true }), {
+        return new Response(JSON.stringify({ success: true, inserted: items.length }), {
           headers: {
             "Content-Type": "application/json",
             "Access-Control-Allow-Origin": "*",
