@@ -5,7 +5,7 @@ compatibility_date = "2024-02-23"
 # Vectorize binding
 [[vectorize]]
 binding = "VECTORIZE_INDEX"
-index_name = "find-my-face-index"
+index_name = "find-my-face-512"
 
 [observability.logs]
 enabled = true
