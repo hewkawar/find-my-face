@@ -1,8 +1,8 @@
-name = "desup-face-backend"
+name = "find-my-face-backend"
 main = "src/index.ts"
 compatibility_date = "2024-02-23"
 
 # Vectorize binding
 [[vectorize]]
 binding = "VECTORIZE_INDEX"
-index_name = "desup-face-index"
+index_name = "find-my-face-index"

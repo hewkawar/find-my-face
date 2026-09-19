@@ -31,9 +31,9 @@
    ```bash
    npx wrangler login
    ```
-3. สร้าง Vectorize Database ชื่อว่า `desup-face-index`
+3. สร้าง Vectorize Database ชื่อว่า `find-my-face-index`
    ```bash
-   npx wrangler vectorize create desup-face-index --dimensions=128 --metric=cosine
+   npx wrangler vectorize create find-my-face-index --dimensions=128 --metric=cosine
    ```
 4. รันระบบ Local (สำหรับการทดสอบ) หรือ Deploy ขึ้น Cloudflare
    ```bash
