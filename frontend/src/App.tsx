@@ -69,30 +69,44 @@ function App() {
     setDisplayCount(12);
 
     try {
-      // 1. สกัด Vector
-      const detections = await faceapi.detectSingleFace(imageRef.current)
+      // 1. สกัด Vector (หาทุกใบหน้าในรูป)
+      const detections = await faceapi.detectAllFaces(imageRef.current)
         .withFaceLandmarks()
-        .withFaceDescriptor();
-
-      if (!detections) {
+        .withFaceDescriptors();
+      
+      if (!detections || detections.length === 0) {
         alert("ไม่พบใบหน้าในรูปภาพที่อัปโหลด กรุณาลองรูปอื่นครับ");
         setIsProcessing(false);
         return;
       }
 
-      const descriptor = Array.from(detections.descriptor);
+      // 2. ส่งไปหาหน้าเหมือนสำหรับทุกๆ ใบหน้าที่เจอ
+      let allFoundMatches: any[] = [];
 
-      // 2. ส่งไปให้ Backend หาคนหน้าเหมือน
-      const response = await fetch(`${import.meta.env.VITE_API_URL}/search`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ vector: descriptor, topK: 50, threshold: 0.7 })
-      });
+      for (const detection of detections) {
+        const descriptor = Array.from(detection.descriptor);
+        
+        const response = await fetch(`${import.meta.env.VITE_API_URL}/search`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ vector: descriptor, topK: 50, threshold: 0.7 }) 
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          if (data.matches) {
+            allFoundMatches = [...allFoundMatches, ...data.matches];
+          }
+        }
+      }
+      
+      // กรองผลลัพธ์ซ้ำ (บางทีหน้าคน A และคน B ในรูปเดียวกัน อาจจะเจอรูปผลลัพธ์เดียวกันถ้ามาจากรูปกลุ่มรูปเดียวกัน)
+      const uniqueMatches = Array.from(new Map(allFoundMatches.map(m => [m.id, m])).values());
+      
+      // เรียงตามคะแนนความเหมือน
+      uniqueMatches.sort((a, b) => b.score - a.score);
 
-      if (!response.ok) throw new Error("API Error");
-
-      const data = await response.json();
-      setAllResults(data.matches || []);
+      setAllResults(uniqueMatches);
 
     } catch (error) {
       console.error(error);

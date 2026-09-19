@@ -72,43 +72,47 @@ async function processSingleFile(file, s3Prefix) {
       return;
     }
 
-    // 2. Extract Vector
+    // 2. Extract Vectors (หาทุกใบหน้าในรูป)
     const filePath = path.join(IMAGES_DIR, file);
     const img = await canvas.loadImage(filePath);
     
-    const detections = await faceapi.detectSingleFace(img)
+    const detections = await faceapi.detectAllFaces(img)
       .withFaceLandmarks()
-      .withFaceDescriptor();
+      .withFaceDescriptors();
     
-    if (!detections) {
+    if (!detections || detections.length === 0) {
       console.log(`❌ [FAILED] No face detected in ${file}. Skipping.`);
       return;
     }
 
-    const vector = Array.from(detections.descriptor);
-
-    // 3. Upload to S3
+    // 3. Upload to S3 (อัปโหลดรูปแค่ครั้งเดียว)
     console.log(`⬆️ Uploading ${file} to S3 -> ${key}...`);
     const s3Url = await uploadToS3(filePath, key);
 
-    // 4. Send to Vectorize
-    console.log(`💾 Indexing ${file} to Cloudflare...`);
-    const response = await fetch(BACKEND_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        id: key, // Use S3 key as unique ID
-        vector: vector,
-        metadata: { url: s3Url, filename: file }
-      })
-    });
+    // 4. Send to Vectorize (ส่ง Vector ทุกใบหน้าที่เจอเข้า DB)
+    console.log(`💾 Indexing ${detections.length} faces from ${file} to Cloudflare...`);
+    
+    for (let i = 0; i < detections.length; i++) {
+      const vector = Array.from(detections[i].descriptor);
+      const faceId = detections.length === 1 ? key : `${key}_face${i}`; // ตั้งชื่อ ID แยกสำหรับคนในรูป
+      
+      const response = await fetch(BACKEND_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: faceId,
+          vector: vector,
+          metadata: { url: s3Url, filename: file, faceIndex: i }
+        })
+      });
 
-    if (!response.ok) {
-      const errText = await response.text();
-      throw new Error(`Backend Error: ${errText}`);
+      if (!response.ok) {
+        const errText = await response.text();
+        console.error(`⚠️ [ERROR] Backend Error indexing ${faceId}: ${errText}`);
+      }
     }
 
-    console.log(`✨ [SUCCESS] Processed and indexed ${file}!`);
+    console.log(`✨ [SUCCESS] Processed and indexed ${detections.length} faces from ${file}!`);
 
   } catch (e) {
     console.error(`⚠️ [ERROR] Failed processing ${file}:`, e);
