@@ -10,6 +10,7 @@ function App() {
   // States for Infinite Scroll
   const [allResults, setAllResults] = useState<any[]>([]);
   const [displayCount, setDisplayCount] = useState(12); // เริ่มแสดงผลที่ 12 รูป
+  const [searchMode, setSearchMode] = useState<'single' | 'group'>('single');
 
   const imageRef = useRef<HTMLImageElement>(null);
   const loadMoreRef = useRef<HTMLDivElement>(null);
@@ -63,16 +64,24 @@ function App() {
 
   const handleSearch = async () => {
     if (!imageRef.current || !isModelLoaded) return;
-
+    
     setIsProcessing(true);
     setAllResults([]);
     setDisplayCount(12);
 
     try {
-      // 1. สกัด Vector (หาทุกใบหน้าในรูป)
-      const detections = await faceapi.detectAllFaces(imageRef.current)
-        .withFaceLandmarks()
-        .withFaceDescriptors();
+      let detections: any[] = [];
+      
+      if (searchMode === 'single') {
+        const det = await faceapi.detectSingleFace(imageRef.current)
+          .withFaceLandmarks()
+          .withFaceDescriptor();
+        if (det) detections = [det];
+      } else {
+        detections = await faceapi.detectAllFaces(imageRef.current)
+          .withFaceLandmarks()
+          .withFaceDescriptors();
+      }
       
       if (!detections || detections.length === 0) {
         alert("ไม่พบใบหน้าในรูปภาพที่อัปโหลด กรุณาลองรูปอื่นครับ");
@@ -149,6 +158,32 @@ function App() {
                     <Upload className="w-12 h-12 text-gray-400 mb-4" />
                     <span className="text-sm font-medium text-gray-700">คลิกเพื่ออัปโหลดรูปภาพ</span>
                     <span className="text-xs text-gray-500 mt-1">รองรับ JPEG, PNG</span>
+                  </label>
+                </div>
+
+                <div className="flex flex-col space-y-2 bg-gray-50 p-4 rounded-xl border border-gray-100">
+                  <p className="text-sm font-medium text-gray-700">รูปแบบการค้นหา:</p>
+                  <label className="flex items-center space-x-2 cursor-pointer">
+                    <input 
+                      type="radio" 
+                      name="searchMode" 
+                      value="single" 
+                      checked={searchMode === 'single'}
+                      onChange={() => setSearchMode('single')}
+                      className="text-blue-600 focus:ring-blue-500"
+                    />
+                    <span className="text-sm text-gray-600">ค้นหาเฉพาะหน้าหลัก (รูปเดี่ยว - รวดเร็ว)</span>
+                  </label>
+                  <label className="flex items-center space-x-2 cursor-pointer">
+                    <input 
+                      type="radio" 
+                      name="searchMode" 
+                      value="group" 
+                      checked={searchMode === 'group'}
+                      onChange={() => setSearchMode('group')}
+                      className="text-blue-600 focus:ring-blue-500"
+                    />
+                    <span className="text-sm text-gray-600">ค้นหาทุกคนในภาพ (รูปกลุ่ม - ใช้เวลาประมวลผลนานกว่า)</span>
                   </label>
                 </div>
 
