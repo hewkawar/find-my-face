@@ -1,4 +1,4 @@
-# AI Face Recognition System
+# Find My Face (AI Face Recognition)
 
 ระบบค้นหาใบหน้า (Face Recognition) ที่สามารถค้นหาใบหน้าที่ตรงกันจากรูปภาพจำนวนมหาศาล (100,000+ รูป) โดยใช้เทคโนโลยี Serverless และ Edge Computing ช่วยให้ระบบทำงานได้อย่างรวดเร็ว รองรับผู้ใช้งานจำนวนมากได้พร้อมกัน และประหยัดค่าใช้จ่าย
 
