@@ -34,6 +34,40 @@ const s3Client = new S3Client({
   }
 });
 
+const vectorQueue = [];
+let isProcessingFinished = false;
+
+async function flushQueueLoop() {
+  while (!isProcessingFinished || vectorQueue.length > 0) {
+    if (vectorQueue.length === 0) {
+      await new Promise(r => setTimeout(r, 100)); // รอข้อมูลเข้า queue
+      continue;
+    }
+    
+    // ดึงครั้งละสูงสุด 50 หน้าเพื่อส่งไป Cloudflare ใน 1 Request
+    const batch = vectorQueue.splice(0, 50);
+    try {
+      const response = await fetch(BACKEND_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(batch)
+      });
+
+      if (!response.ok) {
+        const errText = await response.text();
+        console.error(`⚠️ [ERROR] Backend Batch Insert Error: ${errText}`);
+      } else {
+        console.log(`✅ [BATCH] Successfully indexed ${batch.length} faces to Cloudflare.`);
+      }
+    } catch (e) {
+      console.error(`⚠️ [ERROR] Network Error during batch insert:`, e);
+      // กรณีเน็ตหลุด เอาใส่คืนคิว
+      vectorQueue.unshift(...batch);
+      await new Promise(r => setTimeout(r, 2000));
+    }
+  }
+}
+
 async function fileExistsInS3(key) {
   try {
     await s3Client.send(new HeadObjectCommand({ Bucket: S3_BUCKET, Key: key }));
@@ -89,30 +123,19 @@ async function processSingleFile(file, s3Prefix) {
     console.log(`⬆️ Uploading ${file} to S3 -> ${key}...`);
     const s3Url = await uploadToS3(filePath, key);
 
-    // 4. Send to Vectorize (ส่ง Vector ทุกใบหน้าที่เจอเข้า DB)
-    console.log(`💾 Indexing ${detections.length} faces from ${file} to Cloudflare...`);
-    
+    // 4. ส่งเข้า Queue แทนที่จะยิงทีละอัน
     for (let i = 0; i < detections.length; i++) {
       const vector = Array.from(detections[i].descriptor);
       const faceId = detections.length === 1 ? key : `${key}_face${i}`; // ตั้งชื่อ ID แยกสำหรับคนในรูป
       
-      const response = await fetch(BACKEND_URL, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          id: faceId,
-          vector: vector,
-          metadata: { url: s3Url, filename: file, faceIndex: i }
-        })
+      vectorQueue.push({
+        id: faceId,
+        vector: vector,
+        metadata: { url: s3Url, filename: file, faceIndex: i }
       });
-
-      if (!response.ok) {
-        const errText = await response.text();
-        console.error(`⚠️ [ERROR] Backend Error indexing ${faceId}: ${errText}`);
-      }
     }
 
-    console.log(`✨ [SUCCESS] Processed and indexed ${detections.length} faces from ${file}!`);
+    console.log(`✨ [SUCCESS] Processed and queued ${detections.length} faces from ${file}!`);
 
   } catch (e) {
     console.error(`⚠️ [ERROR] Failed processing ${file}:`, e);
@@ -180,6 +203,9 @@ async function processAndUpload() {
     }
   };
 
+  // Start the background queue flusher
+  const queuePromise = flushQueueLoop();
+
   const workers = [];
   for (let i = 0; i < CONCURRENCY_LIMIT; i++) {
     workers.push(worker());
@@ -187,7 +213,11 @@ async function processAndUpload() {
 
   await Promise.all(workers);
   
-  console.log("🎉 All processing complete!");
+  // รอให้คิวสุดท้ายประมวลผลจนจบ
+  isProcessingFinished = true;
+  await queuePromise;
+  
+  console.log("🎉 All processing and indexing complete!");
 }
 
 processAndUpload();
