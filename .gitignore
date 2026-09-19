@@ -3,3 +3,6 @@
 backend/.env
 /backend/.wrangler
 frontend/.env
+
+# Models
+backend_python/models/*.onnx
