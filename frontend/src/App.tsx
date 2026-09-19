@@ -6,11 +6,11 @@ function App() {
   const [image, setImage] = useState<string | null>(null);
   const [isModelLoaded, setIsModelLoaded] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
-  
+
   // States for Infinite Scroll
   const [allResults, setAllResults] = useState<any[]>([]);
   const [displayCount, setDisplayCount] = useState(12); // เริ่มแสดงผลที่ 12 รูป
-  
+
   const imageRef = useRef<HTMLImageElement>(null);
   const loadMoreRef = useRef<HTMLDivElement>(null);
 
@@ -63,7 +63,7 @@ function App() {
 
   const handleSearch = async () => {
     if (!imageRef.current || !isModelLoaded) return;
-    
+
     setIsProcessing(true);
     setAllResults([]);
     setDisplayCount(12);
@@ -73,7 +73,7 @@ function App() {
       const detections = await faceapi.detectSingleFace(imageRef.current)
         .withFaceLandmarks()
         .withFaceDescriptor();
-      
+
       if (!detections) {
         alert("ไม่พบใบหน้าในรูปภาพที่อัปโหลด กรุณาลองรูปอื่นครับ");
         setIsProcessing(false);
@@ -81,19 +81,19 @@ function App() {
       }
 
       const descriptor = Array.from(detections.descriptor);
-      
+
       // 2. ส่งไปให้ Backend หาคนหน้าเหมือน
-      const response = await fetch('http://localhost:8787/search', {
+      const response = await fetch('https://desup-face.hewkawar.workers.dev/search', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ vector: descriptor, topK: 100, threshold: 0.7 }) 
+        body: JSON.stringify({ vector: descriptor, topK: 100, threshold: 0.7 })
       });
-      
+
       if (!response.ok) throw new Error("API Error");
-      
+
       const data = await response.json();
       setAllResults(data.matches || []);
-      
+
     } catch (error) {
       console.error(error);
       alert("เกิดข้อผิดพลาดในการค้นหา");
@@ -107,7 +107,7 @@ function App() {
   return (
     <div className="min-h-screen bg-gray-50 p-8">
       <div className="max-w-5xl mx-auto space-y-8">
-        
+
         <div className="text-center">
           <h1 className="text-4xl font-bold text-gray-900 mb-2">AI Face Search</h1>
           <p className="text-gray-600">ค้นหาใบหน้าที่ตรงกันจากฐานข้อมูลรูปภาพทั้งหมด</p>
@@ -121,7 +121,7 @@ function App() {
             </div>
           ) : (
             <div className="grid md:grid-cols-2 gap-8">
-              
+
               <div className="space-y-4">
                 <div className="border-2 border-dashed border-gray-300 rounded-xl p-8 text-center hover:bg-gray-50 transition-colors">
                   <input
@@ -163,7 +163,7 @@ function App() {
                   <span className="text-gray-400">ภาพตัวอย่าง</span>
                 )}
               </div>
-              
+
             </div>
           )}
         </div>
@@ -175,17 +175,17 @@ function App() {
               <h2 className="text-2xl font-bold text-gray-900">ผลการค้นหา</h2>
               <span className="text-gray-500 text-sm">พบทั้งหมด {allResults.length} รายการ</span>
             </div>
-            
+
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
               {displayedResults.map((match, idx) => {
                 // ถ้ามี URL จริงจาก metadata ให้ใช้ ถ้าไม่มีให้ใช้ Placeholder
-                const imgUrl = match.metadata?.url || `https://placehold.co/400x400?text=Match+${idx+1}`;
+                const imgUrl = match.metadata?.url || `https://placehold.co/400x400?text=Match+${idx + 1}`;
                 const filename = match.metadata?.filename || match.id;
-                
+
                 return (
                   <div key={`${match.id}-${idx}`} className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden flex flex-col">
                     <div className="aspect-square bg-gray-100 relative w-full">
-                      <img 
+                      <img
                         src={imgUrl}
                         alt={`Match ${idx}`}
                         loading="lazy" // โหลดรูปเมื่อเลื่อนมาเจอเท่านั้น ช่วยประหยัดเน็ต
